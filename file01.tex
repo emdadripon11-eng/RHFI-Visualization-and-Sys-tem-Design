@@ -1,0 +1,412 @@
+\documentclass[11pt,twocolumn]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{times}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{float}
+
+
+% ---------- SPACE COMPRESSION SETTINGS ----------
+\usepackage{microtype}        % Better spacing & kerning
+\usepackage{titlesec}         % Control section spacing
+\usepackage{setspace}         % Line spacing control
+\usepackage{caption}          % Tighter captions
+
+% Reduce section spacing
+\titlespacing*{\section}{0pt}{6pt}{4pt}
+\titlespacing*{\subsection}{0pt}{4pt}{3pt}
+\titlespacing*{\subsubsection}{0pt}{3pt}{2pt}
+
+% Tighten paragraph spacing
+\setlength{\parskip}{0pt}
+\setlength{\parindent}{0.8em}
+
+% Tighten itemize/enumerate spacing
+\setlist{nosep,leftmargin=*}
+
+% Tighter figure captions
+\captionsetup{font=small, skip=4pt}
+
+% Slightly reduce line spacing
+\linespread{0.97}
+
+% Reduce spacing around equations and floats
+\setlength{\abovedisplayskip}{6pt}
+\setlength{\belowdisplayskip}{6pt}
+\setlength{\textfloatsep}{8pt}
+\setlength{\floatsep}{6pt}
+\setlength{\intextsep}{6pt}
+
+
+\title{RHFI Visualization and System Design Progress}
+\author{
+    \small Team 265: Jie Rong, Bo Hao, Sm Emdadul Hoque\\
+    \footnotesize Emails: \{Jie Rong??, Bo Hao??, shoque35\}@gatech.edu
+}
+
+\date{}
+
+\begin{document}
+    \maketitle
+
+    \section{Overview}
+    The Real Estate Housing Fragility Index (RHFI) project quantifies and visualizes
+    regional housing‑market vulnerability across the United States. As markets grow
+    more dynamic and sensitive to economic shifts, policymakers require tools that
+    reveal emerging risks, structural imbalances, and long‑term trends. RHFI
+    integrates multiple indicators—including home prices, income, rent, employment,
+    and derived ratios—into a unified measure of housing fragility.
+
+    A central component of the project is the visualization and system design
+    framework, which transforms raw datasets and computed RHFI scores into an
+    interactive Streamlit dashboard. This interface supports both high‑level pattern
+    recognition and detailed indicator‑level analysis.
+
+    The visualization platform is designed to:
+    \begin{itemize}[noitemsep,leftmargin=*]
+        \item Present RHFI scores geographically and temporally.
+        \item Enable cross‑region comparison through interactive charts.
+        \item Provide transparency via indicator‑level contributions.
+        \item Support exploratory analysis for analysts and policymakers.
+    \end{itemize}
+
+    Together, these components form a comprehensive analytical tool that makes
+    housing fragility patterns accessible, interpretable, and actionable.
+
+    \section{Problem Definition}
+
+    Housing-market risk is influenced by a complex interplay of economic, demographic, and structural factors. Traditional reporting tools often present these indicators in isolation, making it difficult for analysts to identify patterns or assess fragility holistically. Furthermore, regional disparities in home prices, income levels, and rental markets create challenges for cross-region comparison.
+
+    The RHFI project addresses these challenges by defining a unified, data-driven framework for measuring housing fragility and presenting it through an interactive visualization system. The core problem can be summarized as follows:
+
+    \begin{itemize}[noitemsep]
+        \item \textbf{Lack of integrated risk metrics:} Existing tools do not combine multiple housing indicators into a single interpretable index.
+        \item \textbf{Limited transparency:} Users cannot easily understand how individual indicators contribute to overall risk.
+        \item \textbf{Poor comparability:} Differences in regional scale and magnitude make direct comparison difficult without normalization and standardization.
+        \item \textbf{Insufficient interactivity:} Static charts and reports do not support exploratory analysis or dynamic filtering.
+    \end{itemize}
+
+    The RHFI visualization system is designed to solve these issues by providing a unified, interactive platform for analyzing regional housing fragility.
+
+    \section{Literature Survey}
+
+    Research on housing-market fragility draws from real estate economics, financial stability analysis, and urban policy. Prior studies emphasize the need to integrate multiple indicators—such as price-to-income ratios, rent burden, employment trends, and inventory dynamics—to assess regional vulnerability. The following works provide the conceptual foundation for the RHFI framework.
+
+    \subsection{Glaeser \& Gyourko (2018): Housing Supply and Market Volatility}
+    \begin{itemize}
+        \item Analyze how zoning and regulatory constraints amplify price volatility and long-term fragility in metropolitan housing markets.
+        \item Demonstrate that supply-inelastic regions experience sharper boom–bust cycles and heightened affordability stress.
+        \item Motivate RHFI’s inclusion of structural indicators such as price-to-income ratio and inventory growth.
+        \item Limitation: Focuses primarily on supply elasticity and gives limited attention to demand-side shocks (e.g., employment, migration).
+    \end{itemize}
+
+    \subsection{Gabriel \& Rosenthal (2015): Multidimensional Housing Affordability}
+    \begin{itemize}
+        \item Examine affordability stress across U.S. metropolitan areas using rent burden, income trends, and demographic factors.
+        \item Argue that affordability is multidimensional and cannot be captured by a single metric.
+        \item Support RHFI’s composite-index approach and the need for normalization across regions.
+        \item Limitation: Centers on affordability rather than systemic fragility, leaving broader risk integration to future work.
+    \end{itemize}
+
+    \subsection{Anenberg \& Ringo (2022): Market Tightness and Vulnerability}
+    \begin{itemize}
+        \item Propose a framework for measuring housing-market tightness using vacancy rates, price acceleration, and inventory dynamics.
+        \item Show that tight markets are more vulnerable to macroeconomic shocks and exhibit greater instability.
+        \item Align with RHFI’s inclusion of price growth, rent growth, and inventory change as early-warning indicators.
+        \item Limitation: Emphasizes short-term tightness rather than long-term structural fragility, which RHFI aims to capture.
+    \end{itemize}
+
+    \section{System Architecture}
+    The system follows a modular architecture consisting of three major layers:
+
+    \subsection{Data Layer}
+    The data layer consumes the unified dataset produced in Step 1 of the project. It includes:
+
+    \begin{itemize}[noitemsep]
+        \item Zillow Home Value Index (ZHVI)
+        \item Income, rent, and employment datasets
+        \item Derived indicators such as price-to-income ratio, rent growth, and job growth
+    \end{itemize}
+
+    All data is preprocessed and stored in a master dataset (\texttt{final\_dataset.csv}), which is loaded by the visualization system at runtime.
+
+    \subsubsection{Normalized Home Price Values}
+
+    A key preprocessing step in the unified dataset is the normalization of the
+    \texttt{Home\_price} variable. Because raw Zillow home values vary widely across
+    regions, min--max scaling is applied to map all values to the interval $[0,1]$.
+    This transformation sets the lowest observed home price to 0 and the highest to
+    1. For instance, the 2015 home price for Region~10001 normalizes to roughly
+    0.32, meaning it is about 32\% of the maximum value in the dataset. This
+    standardization ensures comparability across heterogeneous markets and prevents
+    large-magnitude variables from dominating the RHFI computation.
+
+
+
+    \[
+        x_{\text{scaled}} = \frac{x - x_{\min}}{x_{\max} - x_{\min}}
+    \]
+
+
+
+    \vspace{4pt}
+    \noindent\textbf{Sample Normalized Values for Region 10001 (2015)}
+    \begin{center}
+        \small
+        \begin{tabular}{cccccc}
+            \toprule
+            Home & Rent & PIR & P\_g & R\_g & Inv\_g \\
+            \midrule
+            0.3222 & 0.0315 & 0 & 0      & 0      & 0      \\
+            0.3224 & 0.0318 & 0 & 0.0006 & 0.0095 & 0.0002 \\
+            0.3234 & 0.0319 & 0 & 0.0031 & 0.0013 & 0.0010 \\
+            0.3249 & 0.0326 & 0 & 0.0048 & 0.0213 & 0.0015 \\
+            0.3275 & 0.0332 & 0 & 0.0078 & 0.0196 & 0.0025 \\
+            \bottomrule
+        \end{tabular}
+    \end{center}
+    \vspace{4pt}
+
+    \begin{figure}[h!]
+        \centering
+        \begin{tikzpicture}
+            \begin{axis}[
+                width=\columnwidth,
+                height=5cm,
+                xlabel={Observation Index},
+                ylabel={Normalized Home Price},
+                ymin=0.30, ymax=0.37,
+                grid=both,
+                ticklabel style={font=\scriptsize},
+                label style={font=\scriptsize},
+            ]
+                \addplot[
+                    blue,
+                    thick,
+                    mark=*,
+                    mark size=1.5pt
+                ]
+                coordinates {
+                    (1,0.3222)
+                    (2,0.3224)
+                    (3,0.3234)
+                    (4,0.3249)
+                    (5,0.3275)
+                    (6,0.3314)
+                    (7,0.3361)
+                    (8,0.3413)
+                    (9,0.3451)
+                    (10,0.3495)
+                    (11,0.3534)
+                    (12,0.3561)
+                };
+            \end{axis}
+        \end{tikzpicture}
+        \caption{Normalized Home Price Trend for Region 10001}
+        \label{fig:normalized_trend}
+    \end{figure}
+
+
+    \subsection{Algorithm Layer}
+    The algorithm layer computes the RHFI score using the weighted formula defined in the proposal. The visualization system interacts with this layer by:
+
+    \begin{itemize}[noitemsep]
+        \item Loading precomputed RHFI values
+        \item Triggering recomputation when users adjust weights (future feature)
+        \item Fetching indicator-level breakdowns for selected regions
+    \end{itemize}
+
+    \subsection{UI Layer}
+    The UI layer is implemented using Streamlit due to its simplicity, speed, and native support for interactive charts. The UI layer includes:
+
+    \begin{itemize}[noitemsep]
+        \item A geographic heatmap of RHFI scores
+        \item A time slider for exploring trends from 2005--2024
+        \item A region comparison module
+        \item Indicator breakdown visualizations
+    \end{itemize}
+
+    \section{Dashboard Components}
+    \begin{figure}[h!]
+        \centering
+        \includegraphics[width=0.9\linewidth]{Dashboard.png}
+        \caption{Your caption here}
+        \label{fig:myimage}
+    \end{figure}
+    The dashboard consists of four major components, each designed to support a specific analytical task.
+
+    \subsection{1. RHFI Geographic Heatmap}
+    \begin{figure}[h!]
+        \centering
+        \includegraphics[width=0.9\linewidth]{HeatMap.png}
+        \caption{Your caption here}
+        \label{fig:myimage}
+    \end{figure}
+    The heatmap visualizes RHFI scores across U.S. regions. High-risk regions are shown in red, while low-risk regions appear in blue. The map supports:
+
+    \begin{itemize}[noitemsep]
+        \item Hover tooltips showing RHFI score and indicators
+        \item Year selection via slider
+        \item Dynamic color scaling
+    \end{itemize}
+
+    The heatmap is implemented using Plotly's \texttt{choropleth} module.
+
+    \subsection{2. Time-Series Trend Viewer}
+    \begin{figure}[h!]
+        \centering
+        \includegraphics[width=0.9\linewidth]{Time-Series.png}
+        \caption{Your caption here}
+        \label{fig:myimage}
+    \end{figure}
+    Users can select any region to view:
+
+    \begin{itemize}[noitemsep]
+        \item RHFI trend over time
+        \item Home price trend
+        \item Rent trend
+        \item Employment trend
+    \end{itemize}
+
+    This component helps users understand long-term structural risk patterns.
+
+    \subsection{3. Region Comparison Tool}
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=0.88\linewidth]{Comparison.png}
+        \caption{Forecasting interface within the RHFI dashboard.}
+    \end{figure}
+
+    The comparison tool allows users to select two regions (e.g., San Francisco vs. Austin) and compare:
+
+    \begin{itemize}[noitemsep]
+        \item RHFI trajectories
+        \item Price-to-income ratios
+        \item Rent growth
+        \item Job growth
+    \end{itemize}
+
+    Charts are displayed side-by-side for clarity.
+
+    \subsection{4. Indicator Breakdown Panel}
+    \begin{figure}[h!]
+        \centering
+        \includegraphics[width=0.9\linewidth]{Indicator.png}
+        \caption{Your caption here}
+        \label{fig:myimage}
+    \end{figure}
+    This panel provides a bar chart showing the contribution of each indicator to the RHFI score. It supports:
+
+    \begin{itemize}[noitemsep]
+        \item Weight visualization
+        \item Indicator-level explanations
+        \item Risk factor interpretation
+    \end{itemize}
+
+    This component is essential for transparency and interpretability.
+
+    \subsection{Forecasting Module}
+
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=0.88\linewidth]{Forecasting.png}
+        \caption{Forecasting interface within the RHFI dashboard.}
+    \end{figure}
+
+    The forecasting module adds a forward-looking analytical layer to the RHFI system by:
+    \begin{itemize}[noitemsep,leftmargin=*]
+        \item Using the Prophet model to project future housing indicators.
+        \item Preparing annual regional data for forecasting.
+        \item Allowing adjustments to horizon, changepoint sensitivity, and seasonality.
+        \item Overlaying historical data with predictions and uncertainty bands.
+        \item Providing component plots that highlight trends and seasonal effects.
+    \end{itemize}
+
+    This module supports transparent and flexible exploration of future housing‑market risk.
+
+
+    \section{System Design Progress}
+    Significant progress has been made on the visualization system:
+
+    \begin{itemize}[noitemsep]
+        \item Streamlit app skeleton implemented
+        \item Data loading and caching completed
+        \item Initial heatmap prototype functional
+        \item Time-series charts implemented using Plotly
+        \item Region comparison layout completed
+        \item Indicator breakdown chart implemented
+    \end{itemize}
+
+    The system currently supports basic interaction and visualization of real RHFI data.
+
+    \section{Revised Plans}
+    The following enhancements are planned before the final report:
+
+    \begin{itemize}[noitemsep]
+        \item Add user-adjustable RHFI weights
+        \item Add filtering by region type (urban, suburban, rural)
+        \item Add export functionality for charts
+        \item Improve UI styling and layout consistency
+        \item Integrate evaluation results into the dashboard
+    \end{itemize}
+
+    These improvements will ensure a polished and fully functional visualization system.
+
+    \section{Conclusion}
+    The visualization and system design components are well underway, with all major modules implemented in prototype form. The dashboard already supports interactive exploration of RHFI data, and upcoming enhancements will further strengthen usability and analytical depth.
+
+
+    \begin{thebibliography}{9}
+
+        \bibitem{rhfi2025}
+        Team 265,
+        \emph{RHFI Visualization and System Design},
+        GitHub, 2025. Available at: \url{https://github.com/yourusername/yourrepo}.
+
+
+        \bibitem{glaeser2018supply}
+        E.~L. Glaeser and J.~Gyourko,
+        ``The economic implications of housing supply,''
+        \emph{Journal of Economic Perspectives}, vol.~32, no.~1, pp.~3--30, 2018.
+
+        \bibitem{gabriel2015affordability}
+        S.~A. Gabriel and S.~S. Rosenthal,
+        ``The U.S. housing market: A comprehensive affordability analysis,''
+        \emph{Regional Science and Urban Economics}, vol.~54, pp.~1--15, 2015.
+
+        \bibitem{anenberg2022tightness}
+        E.~Anenberg and D.~Ringo,
+        ``Housing market tightness and the macroeconomy,''
+        \emph{Finance and Economics Discussion Series}, Federal Reserve Board, 2022.
+        \bibitem{case2003prices}
+        K.~E. Case and R.~J. Shiller,
+        ``Is there a bubble in the housing market?,''
+        \emph{Brookings Papers on Economic Activity}, vol.~2003, no.~2, pp.~299--362, 2003.
+
+        \bibitem{saiz2010land}
+        A.~Saiz,
+        ``The geographic determinants of housing supply,''
+        \emph{Quarterly Journal of Economics}, vol.~125, no.~3, pp.~1253--1296, 2010.
+
+        \bibitem{mian2011foreclosures}
+        A.~Mian and A.~Sufi,
+        ``House prices, home equity–based borrowing, and the U.S. household leverage crisis,''
+        \emph{American Economic Review}, vol.~101, no.~5, pp.~2132--2156, 2011.
+
+        \bibitem{green2013lowincome}
+        R.~K. Green and S.~Malpezzi,
+        ``A primer on U.S. housing markets and housing policy,''
+        \emph{Urban Institute Press}, 2013.
+
+        \bibitem{gyourko2019superstar}
+        J.~Gyourko, C.~Mayer, and T.~Sinai,
+        ``Superstar cities,''
+        \emph{American Economic Journal: Economic Policy}, vol.~11, no.~4, pp.~222--257, 2019.
+
+    \end{thebibliography}
+
+
+\end{document}
