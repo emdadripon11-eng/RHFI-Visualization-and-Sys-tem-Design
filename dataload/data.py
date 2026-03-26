@@ -181,9 +181,9 @@ def main():
 
     df = create_features(df)
 
-    df.to_csv("final_real_estate_dataset.csv", index=False)
+    df.to_csv("final_dataset.csv", index=False)
 
-    print("\n✅ Final dataset saved as: final_real_estate_dataset.csv")
+    print("\n✅ Final dataset saved as: final_dataset.csv")
     print(df.head())
 
 
