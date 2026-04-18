@@ -1,140 +1,168 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 
-# Load data
-df = pd.read_csv("data/final_dataset.csv")
-df = df.drop_duplicates().sort_values(["RegionName", "Year"])
+# =============================
+# PAGE CONFIG
+# =============================
+st.set_page_config(page_title="Region Comparison", layout="wide")
 
-st.title("🔁 Advanced Region Comparison Tool")
+# =============================
+# GLASS UI STYLE (MATCHES home.py)
+# =============================
+st.markdown("""
+<style>
 
-# Sidebar
-st.sidebar.header("Comparison Settings")
-region1 = st.sidebar.selectbox("Region A", df['RegionName'].unique())
-region2 = st.sidebar.selectbox("Region B", df['RegionName'].unique())
+.stApp {
+    background: radial-gradient(circle at top, #0a0f1f 0%, #050814 100%);
+    color: #e5e7eb;
+}
 
-metrics = [
-    "Home_price", "Rent", "Income", "price_income_ratio",
-    "price_growth", "rent_growth", "inventory_change"
-]
+/* Glass container */
+.glass {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    padding: 22px;
+    border-radius: 18px;
+    backdrop-filter: blur(14px);
+    margin-bottom: 1rem;
+}
 
-metric = st.sidebar.selectbox("Metric to Compare", metrics)
+/* Section header */
+.section-title {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #60a5fa;
+    margin-bottom: 0.5rem;
+}
 
-subset = df[df['RegionName'].isin([region1, region2])].copy()
+</style>
+""", unsafe_allow_html=True)
 
-# Latest values for summary cards
-latest = subset.groupby("RegionName").tail(1).set_index("RegionName")
 
-# Summary cards
-colA, colB = st.columns(2)
-colA.metric(f"{region1} – Latest {metric}", f"{latest.loc[region1, metric]:,.2f}")
-colB.metric(f"{region2} – Latest {metric}", f"{latest.loc[region2, metric]:,.2f}")
+# =============================
+# LOAD DATA
+# =============================
+@st.cache_data
+def load_data():
+    df = pd.read_csv("/Users/emdadripon/Downloads/ProjectpoposalFinal/data/rhfi_final_ui_ready.csv")
+    df = df.loc[:, ~df.columns.str.contains("^Unnamed")]
+    df["Region"] = df["Region"].astype(str).str.strip()
+    df = df.drop_duplicates().sort_values(["Region", "Year"])
+    return df
 
-# Tabs
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📈 Trend Comparison",
-    "📉 YoY Change",
-    "📊 Distribution",
-    "🧭 Radar Chart",
-    "🔀 Dual-Axis Compare"
-])
+df = load_data()
 
-# ---------------- TAB 1: Trend Comparison ----------------
-with tab1:
-    fig = px.line(
-        subset, x="Year", y=metric, color="RegionName", markers=True,
-        title=f"{metric.replace('_',' ').title()} Trend"
+
+# =============================
+# HEADER
+# =============================
+st.markdown("""
+<div class="glass">
+    <h1 style="margin-bottom:0;">⚖️ Region Comparison Dashboard</h1>
+    <p style="color:#94a3b8;margin-top:4px;">Glass‑UI edition — clean, modern, and stable</p>
+</div>
+""", unsafe_allow_html=True)
+
+
+# =============================
+# CONTROLS
+# =============================
+regions = sorted(df["Region"].dropna().unique().tolist())
+
+c1, c2, c3 = st.columns([1, 1, 1])
+
+with c1:
+    r1 = st.selectbox("Region A", regions, index=0)
+
+with c2:
+    r2 = st.selectbox("Region B", regions, index=1)
+
+with c3:
+    metric = st.selectbox(
+        "Metric",
+        [c for c in df.select_dtypes(include="number").columns if c != "Year"]
     )
-    fig.update_traces(line=dict(width=3))
+
+r1 = str(r1).strip()
+r2 = str(r2).strip()
+
+latest_year = int(df["Year"].max())
+latest = df[df["Year"] == latest_year]
+
+def get_val(region):
+    v = latest.loc[latest["Region"] == region, metric].values
+    return float(v[0]) if len(v) else None
+
+def get_prev(region):
+    prev = df[df["Year"] == latest_year - 1]
+    v = prev.loc[prev["Region"] == region, metric].values
+    return float(v[0]) if len(v) else None
+
+val1, val2 = get_val(r1), get_val(r2)
+prev1, prev2 = get_prev(r1), get_prev(r2)
+
+
+# =============================
+# KPI CARDS (GLASS)
+# =============================
+st.markdown('<div class="section-title">📊 Key Metrics</div>', unsafe_allow_html=True)
+
+k1, k2 = st.columns(2)
+
+with k1:
+    st.markdown('<div class="glass">', unsafe_allow_html=True)
+    st.metric(
+        label=f"Region {r1} — {metric}",
+        value=f"{val1:,.2f}" if val1 else "N/A",
+        delta=None if prev1 is None else f"{val1 - prev1:,.2f}"
+    )
+    st.markdown('</div>', unsafe_allow_html=True)
+
+with k2:
+    st.markdown('<div class="glass">', unsafe_allow_html=True)
+    st.metric(
+        label=f"Region {r2} — {metric}",
+        value=f"{val2:,.2f}" if val2 else "N/A",
+        delta=None if prev2 is None else f"{val2 - prev2:,.2f}"
+    )
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
+# =============================
+# TABS
+# =============================
+tab1, tab2, tab3 = st.tabs(["📈 Trends", "📊 Comparison", "🧾 Raw Data"])
+
+with tab1:
+    st.markdown('<div class="section-title">Metric Trends Over Time</div>', unsafe_allow_html=True)
+    trend_df = df[df["Region"].isin([r1, r2])]
+    fig = px.line(trend_df, x="Year", y=metric, color="Region", markers=True, template="plotly_dark")
     st.plotly_chart(fig, use_container_width=True)
 
-# ---------------- TAB 2: YoY Change ----------------
 with tab2:
-    subset["YoY"] = subset.groupby("RegionName")[metric].pct_change() * 100
-    fig2 = px.bar(
-        subset, x="Year", y="YoY", color="RegionName",
-        title=f"Year-over-Year % Change – {metric.replace('_',' ').title()}",
-        barmode="group"
-    )
+    st.markdown('<div class="section-title">Latest Year Comparison</div>', unsafe_allow_html=True)
+    comp_df = latest[latest["Region"].isin([r1, r2])]
+    fig2 = px.bar(comp_df, x="Region", y=metric, color="Region", text_auto=".2s", template="plotly_dark")
     st.plotly_chart(fig2, use_container_width=True)
 
-# ---------------- TAB 3: Distribution ----------------
 with tab3:
-    fig3 = px.violin(
-        subset, y=metric, x="RegionName", box=True, points="all",
-        title=f"Distribution of {metric.replace('_',' ').title()}"
-    )
-    st.plotly_chart(fig3, use_container_width=True)
+    st.markdown('<div class="section-title">Data Table</div>', unsafe_allow_html=True)
+    st.dataframe(df[df["Region"].isin([r1, r2])], use_container_width=True)
 
-# ---------------- TAB 4: Radar Chart ----------------
-with tab4:
-    radar_vars = ["price_income_ratio", "price_growth", "rent_growth", "inventory_change"]
-    radar_labels = ["Price/Income", "Price Growth", "Rent Growth", "Inventory Change"]
 
-    # Normalize values 0–1 for fair comparison
-    radar_df = latest[radar_vars].copy()
-    radar_df = (radar_df - radar_df.min()) / (radar_df.max() - radar_df.min())
+# =============================
+# INSIGHT SUMMARY
+# =============================
+st.markdown('<div class="section-title">🔍 Insight Summary</div>', unsafe_allow_html=True)
 
-    fig4 = go.Figure()
+higher = r1 if val1 > val2 else r2
+lower = r2 if val1 > val2 else r1
 
-    for region in [region1, region2]:
-        fig4.add_trace(go.Scatterpolar(
-            r=radar_df.loc[region].values,
-            theta=radar_labels,
-            fill='toself',
-            name=region
-        ))
-
-    fig4.update_layout(title="Indicator Radar Comparison")
-    st.plotly_chart(fig4, use_container_width=True)
-
-# ---------------- TAB 5: Dual-Axis Compare ----------------
-with tab5:
-    compare_metric = st.selectbox("Compare Against", metrics, index=1)
-
-    fig5 = go.Figure()
-
-    # Region A
-    dfA = subset[subset["RegionName"] == region1]
-    fig5.add_trace(go.Scatter(
-        x=dfA["Year"], y=dfA[metric],
-        name=f"{region1} – {metric}",
-        mode="lines+markers", line=dict(width=3)
-    ))
-    fig5.add_trace(go.Scatter(
-        x=dfA["Year"], y=dfA[compare_metric],
-        name=f"{region1} – {compare_metric}",
-        mode="lines+markers", line=dict(width=3, dash="dash"),
-        yaxis="y2"
-    ))
-
-    # Region B
-    dfB = subset[subset["RegionName"] == region2]
-    fig5.add_trace(go.Scatter(
-        x=dfB["Year"], y=dfB[metric],
-        name=f"{region2} – {metric}",
-        mode="lines+markers", line=dict(width=3)
-    ))
-    fig5.add_trace(go.Scatter(
-        x=dfB["Year"], y=dfB[compare_metric],
-        name=f"{region2} – {compare_metric}",
-        mode="lines+markers", line=dict(width=3, dash="dash"),
-        yaxis="y2"
-    ))
-
-    fig5.update_layout(
-        title="Dual-Axis Metric Comparison",
-        yaxis=dict(title=metric),
-        yaxis2=dict(title=compare_metric, overlaying="y", side="right")
-    )
-
-    st.plotly_chart(fig5, use_container_width=True)
-
-# ---------------- Download Button ----------------
-st.download_button(
-    "⬇️ Download Comparison Data",
-    subset.to_csv(index=False),
-    file_name=f"{region1}_vs_{region2}_comparison.csv",
-    mime="text/csv"
-)
+st.markdown(f"""
+<div class="glass">
+    • <b>Region {higher}</b> has a higher <b>{metric}</b> than <b>Region {lower}</b> in {latest_year}.<br><br>
+    • Indicates differences in market pressure or affordability.<br><br>
+    • Trend divergence may signal structural differences between regions.
+</div>
+""", unsafe_allow_html=True)
